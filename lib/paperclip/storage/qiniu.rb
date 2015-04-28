@@ -12,10 +12,10 @@ module Paperclip
         end unless defined?(::Qiniu)
 
         base.instance_eval do
-          unless @options[:url].to_s.match(/^:fog.*url$/)
-            @options[:path]  = @options[:path].gsub(/:url/, @options[:url])
-            @options[:url]   = ':qiniu_public_url'
-          end
+          # unless @options[:url].to_s.match(/^:qiniu.*url$/)
+          #   @options[:path]  = @options[:path].gsub(/:url/, @options[:url]).gsub(/\A:rails_root\/public\/system\//, '')
+          #   @options[:url]   = ':qiniu_public_url'
+          # end
           Paperclip.interpolates(:qiniu_public_url) do |attachment, style|
             attachment.public_url(style)
           end unless Paperclip::Interpolations.respond_to? :qiniu_public_url
@@ -56,7 +56,7 @@ module Paperclip
       def public_url(style = default_style)
         init
         if @options[:qiniu_host]
-          "#{dynamic_fog_host_for_style(style)}/#{path(style)}"
+          "#{@options[:qiniu_host]}/#{path(style)}"
         else
           res = ::Qiniu::RS.get(bucket, path(style))
           if res
@@ -76,12 +76,13 @@ module Paperclip
       end
 
       def upload(file, path)
+        log("--------upload file: #{path}")
         upload_token = ::Qiniu::RS.generate_upload_token :scope => bucket
         opts = {:uptoken            => upload_token,
                  :file               => file.path,
                  :key                => path,
                  :bucket             => bucket,
-                 :mime_type          => file.content_type,
+                 :mime_type          => file.content_type,#'image/jpeg'
                  :enable_crc32_check => true}
         unless ::Qiniu::RS.upload_file(opts)
           raise Paperclip::Qiniu::UploadFailed
@@ -92,13 +93,6 @@ module Paperclip
         @options[:bucket] || raise("bucket is nil")
       end
 
-      def dynamic_fog_host_for_style(style)
-        if @options[:qiniu_host].respond_to?(:call)
-          @options[:qiniu_host].call(self)
-        else
-          @options[:qiniu_host]
-        end
-      end
     end
   end
 end
