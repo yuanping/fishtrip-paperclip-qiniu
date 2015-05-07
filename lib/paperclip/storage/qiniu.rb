@@ -53,18 +53,26 @@ module Paperclip
         @queued_for_delete = []
       end
 
-      def public_url(style = default_style)
+      def public_url(style = nil)
+        style = style.to_s if style.is_a?(Symbol)
+        style = "-#{style}" if style
+        
         init
+        
         if @options[:qiniu_host]
-          "#{@options[:qiniu_host]}/#{path(style)}"
+          "#{@options[:qiniu_host]}/#{path(:original)}#{style}"
         else
-          res = ::Qiniu::RS.get(bucket, path(style))
+          res = ::Qiniu::RS.get(bucket, path(:original))
           if res
-            res["url"]
+            "#{res["url"]}#{style}"
           else
             nil
           end
         end
+      end
+      
+      def url(style = nil)
+        public_url(style)
       end
 
       private
@@ -75,14 +83,14 @@ module Paperclip
         inited = true
       end
 
-      def upload(file, path)
-        log("--------upload file: #{path}")
+      def upload(file, qiniu_key)
+        log("upload file: #{qiniu_key}")
         upload_token = ::Qiniu::RS.generate_upload_token :scope => bucket
         opts = {:uptoken            => upload_token,
                  :file               => file.path,
-                 :key                => path,
+                 :key                => qiniu_key,
                  :bucket             => bucket,
-                 :mime_type          => file.content_type,#'image/jpeg'
+                 :mime_type          => file.content_type,
                  :enable_crc32_check => true}
         unless ::Qiniu::RS.upload_file(opts)
           raise Paperclip::Qiniu::UploadFailed
