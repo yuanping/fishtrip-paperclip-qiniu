@@ -60,7 +60,12 @@ module Paperclip
         init
         
         if @options[:qiniu_host]
-          "#{@options[:qiniu_host]}/#{path(:original)}#{style}"
+          the_url = "#{@options[:qiniu_host]}/#{path(:original)}#{style}"
+          unless style
+            download_token = ::Qiniu::RS.generate_download_token pattern: the_url.gsub('http://', '')
+            the_url << "?token=#{download_token}"
+          end
+          the_url
         else
           res = ::Qiniu::RS.get(bucket, path(:original))
           if res
